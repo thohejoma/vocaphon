@@ -1,0 +1,15 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
+fermion-research==0.2.15
+fastapi==0.165.0
+uvicorn==0.54.0
+python-multipart==0.0.34
+soundfile==0.14.0
+scipy==1.18.1
+numpy==2.5.5
+torch==2.15.0+cpu
+safetensors==0.8.0
+huggingface_hub==2.4.0
+espeakng-loader==0.2.4
+phonemizer-fork==3.3.2
+dizione @ https://github.com/n4ze3m/dizione/archive/8cd889e4de7be6bd1dd2e6891344a0729fa14dd4.tar.gz
+wyoming==1.11.0

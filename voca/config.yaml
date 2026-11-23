@@ -1,0 +1,28 @@
+name: Voca Speech
+version: "1.0.0"
+slug: voca
+description: Local German/English TTS (tiny-voca) and STT (Phonon-2.5) for Assist via Wyoming, plus an OpenAI-compatible API
+url: https://huggingface.co/Fraunhofer-IEM/tiny-voca-de-en
+arch:
+  - amd64
+  - aarch64
+startup: services
+boot: auto
+discovery:
+  - wyoming
+ports:
+  8000/tcp: 8000
+  10200/tcp: null
+ports_description:
+  8000/tcp: OpenAI-compatible API (/v1/audio/speech, /v1/audio/transcriptions)
+  10200/tcp: Wyoming protocol (only needed outside Home Assistant)
+options:
+  voice_de: fresh-de-f00
+  voice_en: fresh-en-f00
+  stt_model: FermionResearch/Phonon-2.5
+  log_level: info
+schema:
+  voice_de: match(^fresh-de-[fm](0[0-9]|1[0-5])$)
+  voice_en: match(^fresh-en-[fm](0[0-9]|1[0-5])$)
+  stt_model: list(FermionResearch/Phonon-2.5|FermionResearch/Phonon-2.5-English)
+  log_level: list(debug|info|warning|error)

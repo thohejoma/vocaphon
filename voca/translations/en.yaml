@@ -1,0 +1,15 @@
+configuration:
+  voice_de:
+    name: German voice
+    description: Voice used by Assist for German (fresh-de-f00 … f15 female, m00 … m15 male).
+  voice_en:
+    name: English voice
+    description: Voice used by Assist for English (fresh-en-f00 … f15 female, m00 … m15 male).
+  stt_model:
+    name: Speech recognition model
+    description: Phonon-2.5 handles German and English (and 23 more); Phonon-2.5-English is English only.
+  log_level:
+    name: Log level
+network:
+  8000/tcp: OpenAI-compatible API
+  10200/tcp: Wyoming protocol (only needed outside Home Assistant)

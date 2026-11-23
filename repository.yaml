@@ -1,0 +1,3 @@
+# repository.yaml for the Home Assistant add-on repository (copied to the repo root by publish_addon.sh)
+name: Voca local add-ons
+maintainer: thorsten
