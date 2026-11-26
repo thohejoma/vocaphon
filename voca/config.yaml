@@ -1,5 +1,5 @@
 name: Voca Speech
-version: "1.1.0"
+version: "1.1.1"
 slug: voca
 description: Local German/English TTS (tiny-voca, apptor-tiny-tts) and STT (Phonon-2.5) for Assist via Wyoming, plus an OpenAI-compatible API
 url: https://huggingface.co/Fraunhofer-IEM/tiny-voca-de-en

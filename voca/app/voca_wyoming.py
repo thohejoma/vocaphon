@@ -29,20 +29,22 @@ def build_info(tts) -> Info:
     stt_attr = Attribution(name="Fermion Research", url="https://huggingface.co/FermionResearch/Phonon-2.5")
     apptor_attr = Attribution(name="apptor / apptor-tiny-tts", url="https://huggingface.co/apptor/apptor-tiny-tts")
     attrs = {"tiny-voca": tts_attr, "apptor-tiny-tts": apptor_attr}
-    descriptions = {"tiny-voca": "tiny-voca German/English TTS", "apptor-tiny-tts": "apptor-tiny-tts German TTS"}
-
-    def program(name, engine):
-        voices = [TtsVoice(name=v, description=v, attribution=attrs[name], installed=True, version=VERSION,
-                           languages=LANG_TAGS[engine.voice_language(v)]) for v in engine.voices]
-        return TtsProgram(name=name, description=descriptions[name], attribution=attrs[name],
-                          installed=True, version=VERSION, voices=voices)
+    # Home Assistant's Wyoming integration only uses the first TTS program, so all engines' voices go into one.
+    voices = []
+    for engine_name, engine in tts.engines.items():
+        for v in engine.voices:
+            desc = v if engine_name == "tiny-voca" else \
+                f"{v} (apptor-tiny-tts, {'female' if v.split('-')[-1][0] == 'f' else 'male'})"
+            voices.append(TtsVoice(name=v, description=desc, attribution=attrs[engine_name], installed=True,
+                                   version=VERSION, languages=LANG_TAGS[engine.voice_language(v)]))
     return Info(
         asr=[AsrProgram(name="phonon", description="Phonon-2.5 speech recognition", attribution=stt_attr,
                         installed=True, version=VERSION,
                         models=[AsrModel(name="phonon-2.5", description="Phonon-2.5", attribution=stt_attr,
                                          installed=True, version=VERSION,
                                          languages=LANG_TAGS["de"] + LANG_TAGS["en"])])],
-        tts=[program(name, engine) for name, engine in tts.engines.items()],
+        tts=[TtsProgram(name="tiny-voca", description="tiny-voca German/English TTS + apptor-tiny-tts German TTS",
+                        attribution=tts_attr, installed=True, version=VERSION, voices=voices)],
     )
 
 

@@ -20,7 +20,8 @@ starts work offline. Watch progress in the **Log** tab.
    (Adding it by hand: Wyoming Protocol integration, host `local-voca`, port `10200`.)
 2. *Settings → Voice assistants*: edit your assistant and pick **tiny-voca** as text-to-speech and
    **phonon** as speech-to-text. Choose a voice there, or leave it on the default from the options below.
-   For German you can also pick **apptor-tiny-tts** as text-to-speech (voices `apptor-de-f2` / `apptor-de-m2`).
+   For German, the voices `apptor-de-f2` / `apptor-de-m2` (apptor-tiny-tts) are in the same voice list.
+   After an update that adds voices, reload the Wyoming entry (⋮ → **Reload**) so the list refreshes.
 
 ## Options
 
