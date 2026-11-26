@@ -1,7 +1,7 @@
 name: Voca Speech
-version: "1.0.0"
+version: "1.1.0"
 slug: voca
-description: Local German/English TTS (tiny-voca) and STT (Phonon-2.5) for Assist via Wyoming, plus an OpenAI-compatible API
+description: Local German/English TTS (tiny-voca, apptor-tiny-tts) and STT (Phonon-2.5) for Assist via Wyoming, plus an OpenAI-compatible API
 url: https://huggingface.co/Fraunhofer-IEM/tiny-voca-de-en
 arch:
   - amd64
@@ -20,9 +20,11 @@ options:
   voice_de: fresh-de-f00
   voice_en: fresh-en-f00
   stt_model: FermionResearch/Phonon-2.5
+  apptor_vocos: true
   log_level: info
 schema:
-  voice_de: match(^fresh-de-[fm](0[0-9]|1[0-5])$)
+  voice_de: match(^(fresh-de-[fm](0[0-9]|1[0-5])|apptor-de-[fm]2)$)
   voice_en: match(^fresh-en-[fm](0[0-9]|1[0-5])$)
   stt_model: list(FermionResearch/Phonon-2.5|FermionResearch/Phonon-2.5-English)
+  apptor_vocos: bool
   log_level: list(debug|info|warning|error)

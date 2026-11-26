@@ -1,13 +1,16 @@
 configuration:
   voice_de:
     name: German voice
-    description: Voice used by Assist for German (fresh-de-f00 … f15 female, m00 … m15 male).
+    description: Voice used by Assist for German (tiny-voca fresh-de-f00 … f15 female, m00 … m15 male; apptor-tiny-tts apptor-de-f2 female, apptor-de-m2 male).
   voice_en:
     name: English voice
     description: Voice used by Assist for English (fresh-en-f00 … f15 female, m00 … m15 male).
   stt_model:
     name: Speech recognition model
     description: Phonon-2.5 handles German and English (and 23 more); Phonon-2.5-English is English only.
+  apptor_vocos:
+    name: apptor Vocos sound filter
+    description: Clearer apptor-tiny-tts voices at a small speed cost. Off sounds buzzy.
   log_level:
     name: Log level
 network:

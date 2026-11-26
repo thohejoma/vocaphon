@@ -13,3 +13,5 @@ espeakng-loader==0.2.4
 phonemizer-fork==3.3.2
 dizione @ https://github.com/n4ze3m/dizione/archive/8cd889e4de7be6bd1dd2e6891344a0729fa14dd4.tar.gz
 wyoming==1.11.0
+onnxruntime==1.32.0
+num2words==0.5.14

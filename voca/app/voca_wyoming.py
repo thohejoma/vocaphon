@@ -1,4 +1,4 @@
-"""Wyoming protocol server (Home Assistant Assist): tiny-voca TTS + Phonon-2.5 STT.
+"""Wyoming protocol server (Home Assistant Assist): tiny-voca + apptor-tiny-tts TTS, Phonon-2.5 STT.
 
 Runs in the same process as the OpenAI API (see server.py) and shares its models.
 """
@@ -27,16 +27,22 @@ VERSION = "1.0.0"
 def build_info(tts) -> Info:
     tts_attr = Attribution(name="Fraunhofer IEM / tiny-voca", url="https://huggingface.co/Fraunhofer-IEM/tiny-voca-de-en")
     stt_attr = Attribution(name="Fermion Research", url="https://huggingface.co/FermionResearch/Phonon-2.5")
-    voices = [TtsVoice(name=v, description=v, attribution=tts_attr, installed=True, version=VERSION,
-                       languages=LANG_TAGS[tts.voice_language(v)]) for v in tts.voices]
+    apptor_attr = Attribution(name="apptor / apptor-tiny-tts", url="https://huggingface.co/apptor/apptor-tiny-tts")
+    attrs = {"tiny-voca": tts_attr, "apptor-tiny-tts": apptor_attr}
+    descriptions = {"tiny-voca": "tiny-voca German/English TTS", "apptor-tiny-tts": "apptor-tiny-tts German TTS"}
+
+    def program(name, engine):
+        voices = [TtsVoice(name=v, description=v, attribution=attrs[name], installed=True, version=VERSION,
+                           languages=LANG_TAGS[engine.voice_language(v)]) for v in engine.voices]
+        return TtsProgram(name=name, description=descriptions[name], attribution=attrs[name],
+                          installed=True, version=VERSION, voices=voices)
     return Info(
         asr=[AsrProgram(name="phonon", description="Phonon-2.5 speech recognition", attribution=stt_attr,
                         installed=True, version=VERSION,
                         models=[AsrModel(name="phonon-2.5", description="Phonon-2.5", attribution=stt_attr,
                                          installed=True, version=VERSION,
                                          languages=LANG_TAGS["de"] + LANG_TAGS["en"])])],
-        tts=[TtsProgram(name="tiny-voca", description="tiny-voca German/English TTS", attribution=tts_attr,
-                        installed=True, version=VERSION, voices=voices)],
+        tts=[program(name, engine) for name, engine in tts.engines.items()],
     )
 
 

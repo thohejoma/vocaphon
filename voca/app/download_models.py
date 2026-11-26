@@ -15,6 +15,15 @@ if not (MODELS / "tiny-voca-de-en/voca64/model.safetensors").exists():
 if not (MODELS / "dizione/phonemizer/g2p.npz").exists():
     snapshot_download("n4ze3m/tiny-voca", allow_patterns=["phonemizer/*"], local_dir=MODELS / "dizione")
 
+# apptor-tiny-tts (German, F2/M2): pinned revision; its speak.py + tinyvoca/ are imported at runtime.
+APPTOR_REV = os.environ.get("APPTOR_REVISION", "0b6962273a1d6618f250cdbd621b56ba04b62cef")
+apptor = Path(os.environ.get("APPTOR_MODEL_DIR", MODELS / "apptor-tiny-tts"))
+if os.environ.get("APPTOR", "1") != "0" and not ((apptor / ".revision").exists()
+                                                  and (apptor / ".revision").read_text().strip() == APPTOR_REV):
+    snapshot_download("apptor/apptor-tiny-tts", revision=APPTOR_REV, local_dir=apptor,
+                      allow_patterns=["*.onnx", "*.json", "speak.py", "tinyvoca/*", "LICENSE", "README.md"])
+    (apptor / ".revision").write_text(APPTOR_REV)
+
 # Phonon: fermion's own fetcher (pinned SHA-256, uses its cache when already unpacked).
 from fermion._speech import fetch
 from fermion.transcribe import _resolve

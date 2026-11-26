@@ -1,6 +1,7 @@
 """OpenAI-compatible speech server.
 
   POST /v1/audio/speech           TTS  tiny-voca (Fraunhofer-IEM/tiny-voca-de-en), German + English
+                                       apptor-tiny-tts (apptor/apptor-tiny-tts), German, voices apptor-de-f2/m2
   POST /v1/audio/transcriptions   STT  Phonon-2.5 (FermionResearch/Phonon-2.5), German + English (+23 more)
   GET  /v1/models                 model list
   GET  /v1/audio/voices           voice list (non-standard helper)
@@ -31,10 +32,11 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import JSONResponse, PlainTextResponse, Response
 from pydantic import BaseModel, Field
 
+from voca_tts.apptor import MultiTTS, load_apptor
 from voca_tts.engine import NothingToSay, VocaTTS, detect_language
 
 STT_MODEL = os.environ.get("STT_MODEL", "FermionResearch/Phonon-2.5")
-TTS_MODEL_NAMES = {"tiny-voca", "tts-1", "tts-1-hd", "gpt-4o-mini-tts"}
+TTS_MODEL_NAMES = {"tiny-voca", "apptor-tiny-tts", "tts-1", "tts-1-hd", "gpt-4o-mini-tts"}
 STT_MODEL_NAMES = {"phonon-2.5", "whisper-1", "gpt-4o-transcribe", "gpt-4o-mini-transcribe"}
 
 # OpenAI voice names -> voice index within the chosen language ("f03" / "m01").
@@ -43,7 +45,7 @@ OPENAI_VOICES = {
     "echo": "m00", "onyx": "m01", "fable": "m02", "ash": "m03", "ballad": "m04", "verse": "m05",
 }
 
-tts = VocaTTS()
+tts = MultiTTS(VocaTTS(), load_apptor())
 _stt = None
 
 
@@ -73,14 +75,14 @@ app = FastAPI(title="voca speech server", lifespan=lifespan)
 @app.get("/v1/models")
 def models():
     now = int(time.time())
-    ids = ["tiny-voca", "phonon-2.5", "tts-1", "tts-1-hd", "whisper-1"]
+    ids = [*tts.engines, "phonon-2.5", "tts-1", "tts-1-hd", "whisper-1"]
     return {"object": "list", "data": [{"id": i, "object": "model", "created": now, "owned_by": "local"} for i in ids]}
 
 
 @app.get("/v1/audio/voices")
 def voices():
     return {"openai_aliases": OPENAI_VOICES, "voices": [
-        {"id": v, "language": tts.voice_language(v), "gender": "female" if v.split("-")[-1][0] == "f" else "male"}
+        {"id": v, "model": tts.engine_name(v), "language": tts.voice_language(v), "gender": "female" if v.split("-")[-1][0] == "f" else "male"}
         for v in tts.voices]}
 
 
@@ -95,10 +97,17 @@ class SpeechRequest(BaseModel):
     instructions: str | None = None      # accepted for compatibility, ignored
 
 
-def _resolve_voice(voice: str, language: str | None, text: str) -> tuple[str, str]:
+def _resolve_voice(voice: str, language: str | None, text: str, model: str = "") -> tuple[str, str]:
     voice = voice.strip()
     if voice in tts.voices:
         return voice, (language or tts.voice_language(voice))
+    if model == "apptor-tiny-tts":                    # German only: map an OpenAI name / f.. / m.. onto F2 or M2
+        if "apptor-tiny-tts" not in tts.engines:
+            raise HTTPException(400, "apptor-tiny-tts is not available on this server")
+        key = voice.lower()
+        gender = OPENAI_VOICES[key][0] if key in OPENAI_VOICES else key[:1]
+        if gender and gender in "fm":
+            return f"apptor-de-{gender}2", "de"
     lang = (language or detect_language(text)).lower()[:2]
     if lang not in ("de", "en"):
         raise HTTPException(400, f"unsupported language {language!r}; use 'de' or 'en'")
@@ -138,7 +147,7 @@ def _encode(wave: np.ndarray, sr: int, fmt: str) -> tuple[bytes, str]:
 def speech(req: SpeechRequest):
     if not req.input.strip():
         raise HTTPException(400, "input is empty")
-    voice, lang = _resolve_voice(req.voice, req.language, req.input)
+    voice, lang = _resolve_voice(req.voice, req.language, req.input, req.model.strip().lower())
     try:
         wave = tts.synthesize(req.input, voice, language=lang, speed=req.speed)
     except NothingToSay as exc:

@@ -19,6 +19,7 @@ env.update({
     "WYOMING_VOICE_DE": opts.get("voice_de", "fresh-de-f00"),
     "WYOMING_VOICE_EN": opts.get("voice_en", "fresh-en-f00"),
     "STT_MODEL": opts.get("stt_model", "FermionResearch/Phonon-2.5"),
+    "APPTOR_VOCOS": "1" if opts.get("apptor_vocos", True) else "0",
     "LOG_LEVEL": opts.get("log_level", "info"),
 })
 
@@ -28,7 +29,7 @@ def log(msg):
 
 
 # Models: downloaded once into /data (kept across restarts and updates), checksum-verified.
-log(f"checking models in {models} (first start downloads ~0.4 GB)")
+log(f"checking models in {models} (first start downloads ~0.45 GB)")
 subprocess.run([sys.executable, "/app/download_models.py"], env=env, check=True)
 env["HF_HUB_OFFLINE"] = "1"
 
