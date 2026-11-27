@@ -53,6 +53,7 @@ PASS_OPTIONS = {"temperature": "temperature", "top_p": "top_p", "top_k": "top_k"
 _proc: subprocess.Popen | None = None
 _client: httpx.AsyncClient | None = None
 _ready = asyncio.Event()
+_warmup_task: asyncio.Task | None = None
 
 
 # ------------------------------------------------------------------ llama-server process
@@ -62,6 +63,9 @@ def _start_backend():
            "-c", str(CTX), "-np", "1", "-t", str(THREADS), "--jinja", "--no-webui",
            # 8-bit KV cache (needs flash attention): half the memory of f16, negligible quality loss
            "-fa", "on", "-ctk", "q8_0", "-ctv", "q8_0",
+           # small batches: a progress event per 256 prompt tokens, and llama-server notices a client that gave up
+           # (only when it sends something) and cancels, instead of blocking the next request for minutes
+           "-b", "256", "-ub", "256",
            "--cache-ram", os.environ.get("LLM_CACHE_RAM", "512"),
            *MODEL["sampling"], *os.environ.get("LLAMA_ARGS", "").split()]
     _LOG.info("starting %s", " ".join(cmd))
@@ -75,6 +79,7 @@ def _start_backend():
 
 
 async def _wait_ready():
+    global _warmup_task
     t0 = time.monotonic()
     while True:
         try:
@@ -82,7 +87,7 @@ async def _wait_ready():
             if r.status_code == 200:
                 _LOG.info("model %s loaded in %.0f s", MODEL["name"], time.monotonic() - t0)
                 _ready.set()
-                await _warmup()
+                _warmup_task = asyncio.create_task(_warmup())
                 return
         except httpx.HTTPError:
             pass
@@ -112,15 +117,23 @@ async def _warmup():
     except (OSError, ValueError):
         return
     t0 = time.monotonic()
-    req = {"messages": prefix["messages"] + [{"role": "user", "content": "Hallo"}], "max_tokens": 1}
+    req = {"messages": prefix["messages"] + [{"role": "user", "content": "Hallo"}], "max_tokens": 1,
+           "stream": True, "return_progress": True}       # streamed, so a cancel reaches llama-server
     if prefix.get("tools"):
         req["tools"] = prefix["tools"]
     if MODEL["hybrid_thinking"]:
         req["chat_template_kwargs"] = {"enable_thinking": False}
+    _LOG.info("warm-up: processing the last system prompt in the background")
+    n = 0
     try:
-        r = await _client.post(f"{BACKEND}/v1/chat/completions", json=req)
-        n = (r.json().get("timings") or {}).get("prompt_n", 0) if r.status_code == 200 else 0
+        async with _client.stream("POST", f"{BACKEND}/v1/chat/completions", json=req) as r:
+            async for line in r.aiter_lines():
+                if line.startswith("data: {"):
+                    n = (json.loads(line[6:]).get("prompt_progress") or {}).get("processed", n)
         _LOG.info("warm-up: cached %d prompt tokens in %.0f s", n, time.monotonic() - t0)
+    except asyncio.CancelledError:
+        _LOG.info("warm-up: stopped after %d prompt tokens, a request came in", n)
+        raise
     except (httpx.HTTPError, ValueError) as exc:
         _LOG.warning("warm-up failed: %s", exc)
 
@@ -274,6 +287,19 @@ def _log_timings(t: dict | None, t0: float):
                   time.monotonic() - t0)
 
 
+def _log_progress(p: dict, t0: float, first: bool):
+    total, cache, done = p.get("total", 0), p.get("cache", 0), p.get("processed", 0)
+    if first:                                      # how much of the prompt is new
+        _LOG.info("prompt %d tok, %d from cache, %d to process%s", total, cache, total - cache,
+                  " (expect minutes: the system prompt changed or this is the first request)"
+                  if total - cache > 1000 else "")
+        if total > CTX * 0.85:
+            _LOG.warning("prompt uses %d of %d context tokens: expose fewer entities or raise context_size",
+                         total, CTX)
+    elif done < total:                             # the last event (done == total) adds nothing
+        _LOG.info("  ... %d/%d prompt tokens, %.0f s", done, total, time.monotonic() - t0)
+
+
 def _final(t: dict | None, t0: float, reason: str) -> dict:
     t = t or {}
     return {"model": MODEL["name"], "created_at": _now_iso(), "message": {"role": "assistant", "content": ""},
@@ -299,8 +325,12 @@ async def chat(request: Request):
         await _backend_ready()
     except RuntimeError as exc:
         return JSONResponse({"error": str(exc)}, 503)
+    if _warmup_task and not _warmup_task.done():   # don't make the user wait behind it
+        _warmup_task.cancel()
+        await asyncio.gather(_warmup_task, return_exceptions=True)
     req = _request_body(body, stream)
     _save_warmup(req)
+    _LOG.info("chat request: %d messages, %d tools", len(req["messages"]), len(req.get("tools") or []))
     _LOG.debug("chat request: %s", json.dumps(req, ensure_ascii=False)[:4000])
 
     if not stream:
@@ -318,9 +348,11 @@ async def chat(request: Request):
         _log_timings(data.get("timings"), t0)
         return {**_final(data.get("timings"), t0, data["choices"][0].get("finish_reason")), "message": out}
 
+    req["return_progress"] = True
+
     async def gen():
         calls: dict[int, dict] = {}
-        timings, reason = None, "stop"
+        timings, reason, progress = None, "stop", 0
         try:
             async with _client.stream("POST", f"{BACKEND}/v1/chat/completions", json=req) as r:
                 if r.status_code != 200:
@@ -332,6 +364,10 @@ async def chat(request: Request):
                     if not line.startswith("data: ") or line == "data: [DONE]":
                         continue
                     data = json.loads(line[6:])
+                    if "prompt_progress" in data:
+                        _log_progress(data["prompt_progress"], t0, first=not progress)
+                        progress += 1
+                        continue
                     timings = data.get("timings") or timings
                     for choice in data.get("choices", []):
                         delta = choice.get("delta") or {}
@@ -350,6 +386,9 @@ async def chat(request: Request):
                             yield json.dumps({"model": MODEL["name"], "created_at": _now_iso(),
                                               "message": {"role": "assistant", "content": "", **msg},
                                               "done": False}) + "\n"
+        except asyncio.CancelledError:
+            _LOG.warning("client disconnected after %.0f s, request cancelled", time.monotonic() - t0)
+            raise
         except httpx.HTTPError as exc:
             _LOG.error("llama-server request failed: %s", exc)
             yield json.dumps({"error": f"llama-server request failed: {exc}"}) + "\n"
@@ -394,5 +433,6 @@ def health():
 if __name__ == "__main__":
     import uvicorn
     logging.basicConfig(level=os.environ.get("LOG_LEVEL", "INFO").upper(), format="%(levelname)s %(name)s: %(message)s")
+    logging.getLogger("httpx").setLevel(logging.WARNING)
     uvicorn.run(app, host=os.environ.get("HOST", "0.0.0.0"), port=int(os.environ.get("PORT", "11434")),
                 log_level="warning")

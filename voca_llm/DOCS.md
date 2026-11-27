@@ -40,11 +40,34 @@ sends a system prompt with all exposed devices and tools (1,000–4,000 tokens) 
   instructions, processes the whole prompt: one to three minutes.** After that only the new message is
   processed: a device command takes about 5–15 seconds, a two-sentence answer 15–25 seconds.
 - After a restart the add-on replays the last system prompt in the background (`warm-up` in the log),
-  so the first question is fast again once that finished.
+  so the first question is fast again once that finished. A question that comes in earlier stops the
+  warm-up and continues from where it got.
 
 Measured on a 4-core Intel i5-7500T (a Pi 5 is in the same range): cold prompt of 1,200 tokens 65–78 s;
 with cache: "Mach das Licht in der Küche an" 6 s per step (tool call, then answer), answers at 3.5–4
 tokens per second. Each request's numbers are in the log (`prompt … tok (… cached)`).
+
+## Slow or no answer
+
+Look at the add-on's **Log** tab while you ask something. Every request logs a line like
+
+    prompt 3412 tok, 3301 from cache, 111 to process
+
+followed by progress lines (`... 1024/3412 prompt tokens, 60 s`) and finally the timings. On a Pi 5 the
+model reads roughly 10–20 prompt tokens per second, so:
+
+- **Many tokens "to process" on every request**: the cache doesn't hit. The first request after changing
+  exposed entities is always slow; if *every* request is, please report the log.
+- **A large total** (more than about 3,000 tokens): too many exposed entities. Home Assistant exposes new
+  entities to Assist by default; under *Settings → Voice assistants → Expose* keep only what you want to
+  control by voice. Each entity costs about 20–40 tokens on every cold prompt. A warning is logged when
+  the prompt gets close to `context_size`.
+- **Still too slow**: switch `model` to `qwen3-1.7b` (about twice as fast) and keep *Prefer handling
+  commands locally* on.
+- A Raspberry Pi 5 without an active cooler throttles under this load and gets much slower.
+
+If you give up on a question (or a voice satellite times out), the log says `client disconnected …,
+request cancelled` and the next question doesn't have to wait for the old one.
 
 ## Memory
 

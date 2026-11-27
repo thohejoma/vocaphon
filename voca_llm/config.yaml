@@ -1,5 +1,5 @@
 name: Voca LLM
-version: "1.0.1"
+version: "1.0.2"
 slug: voca_llm
 description: Offline LLM conversation agent for Assist (llama.cpp + Qwen3-4B-Instruct), via the built-in Ollama integration
 url: https://github.com/ggml-org/llama.cpp
