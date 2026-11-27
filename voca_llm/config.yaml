@@ -1,0 +1,24 @@
+name: Voca LLM
+version: "1.0.0"
+slug: voca_llm
+description: Offline LLM conversation agent for Assist (llama.cpp + Qwen3-4B-Instruct), via the built-in Ollama integration
+url: https://github.com/ggml-org/llama.cpp
+arch:
+  - amd64
+  - aarch64
+startup: services
+boot: auto
+ports:
+  11434/tcp: null
+ports_description:
+  11434/tcp: Ollama-compatible API (only needed outside Home Assistant)
+options:
+  model: qwen3-4b-instruct
+  context_size: 8192
+  threads: 4
+  log_level: info
+schema:
+  model: list(qwen3-4b-instruct|qwen3-1.7b)
+  context_size: list(4096|8192|16384)
+  threads: int(1,16)
+  log_level: list(debug|info|warning|error)

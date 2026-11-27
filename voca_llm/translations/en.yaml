@@ -1,0 +1,15 @@
+configuration:
+  model:
+    name: Model
+    description: qwen3-4b-instruct (2.4 GB, best quality, recommended for a Pi 5 with 8 GB) or qwen3-1.7b (1 GB, about twice as fast, less reliable with devices).
+  context_size:
+    name: Context size
+    description: Tokens the model can see at once (prompt + exposed devices + conversation). 8192 matches Home Assistant's default; use 16384 only with many exposed entities.
+  threads:
+    name: CPU threads
+    description: 4 uses all cores of a Raspberry Pi 5.
+  log_level:
+    name: Log level
+    description: info logs prompt/answer token counts and timings per request; debug also logs the requests.
+network:
+  11434/tcp: Ollama-compatible API (only needed outside Home Assistant)
