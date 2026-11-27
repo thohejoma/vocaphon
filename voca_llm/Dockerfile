@@ -1,6 +1,7 @@
 # llama.cpp's official llama-server image (Ubuntu, CPU backends for every x86/ARM variant) + a small Python front end.
-ARG BUILD_FROM=ghcr.io/ggml-org/llama.cpp:server-b12808
-FROM ${BUILD_FROM}
+# The base is fixed here on purpose: no build.yaml (deprecated, and the Supervisor rejects "llama.cpp" as an image
+# name) and no ARG BUILD_FROM (the Supervisor would pass its Alpine base image).
+FROM ghcr.io/ggml-org/llama.cpp:server-b12808
 
 ENV PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
